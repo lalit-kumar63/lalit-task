@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}Post Feed{% endblock %}
+
+{% block content %}
+<h2>Post a Feed</h2>
+<form id="postFeedForm" enctype="multipart/form-data">
+    {% csrf_token %}
+    <textarea name="content" placeholder="Write your feed" required></textarea><br>
+    <input type="file" name="image"><br>
+    <button type="submit">Post</button>
+</form>
+<p id="feedMessage"></p>
+<script>
+document.getElementById('postFeedForm').onsubmit = async function(e){
+    e.preventDefault();
+    const formData = new FormData(this);
+    const token = localStorage.getItem('access');
+    // First create feed
+    const resFeed = await fetch('/api/feeds/', {
+        method: 'POST',
+        headers: {'Authorization': 'Bearer ' + token},
+        body: JSON.stringify({content: formData.get('content')}),
+    });
+    const feedResult = await resFeed.json();
+    // Then upload image if selected
+    const image = formData.get('image');
+    if(image){
+        const imageData = new FormData();
+        imageData.append('image', image);
+        imageData.append('feed', feedResult.id);
+        await fetch('/api/feed-image/', {
+            method: 'POST',
+            headers: {'Authorization': 'Bearer ' + token},
+            body: imageData
+        });
+    }
+    document.getElementById('feedMessage').innerText = 'Feed posted!';
+    window.location.href = '/feeds/';
+};
+</script>
+{% endblock %}

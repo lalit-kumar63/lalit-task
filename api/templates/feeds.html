@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Feeds{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="my-4">All Feeds</h2>
+    <a href="/post-feed/" class="btn btn-primary mb-4">Post a Feed</a>
+    <div id="feedsContainer">
+        {% for feed_item in feed_data %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">{{ feed_item.feed.author.username }}</h5>
+                    <p class="card-text">{{ feed_item.feed.text_content }}</p>
+                    {% if feed_item.images %}
+                        {% for img in feed_item.images %}
+                            <img src="{{ img.image_url }}" class="img-fluid rounded" alt="Feed image">
+                        {% endfor %}
+                    {% endif %}
+                    <hr>
+                    <h6>Comments</h6>
+                    {% for comment in feed_item.comments %}
+                        <div class="media mb-2">
+                            <div class="media-body">
+                                <strong>{{ comment.author.username }}</strong>
+                                <p>{{ comment.text_content }}</p>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <p>No comments yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        {% empty %}
+            <p>No feeds to display.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
