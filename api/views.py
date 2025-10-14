@@ -35,26 +35,8 @@ class RegisterView(generics.CreateAPIView):
         )
 
 
-# from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-
-# class LoginView(TokenObtainPairView):
-#     serializer_class = TokenObtainPairSerializer
-
-#     def post(self, request, *args, **kwargs):
-#         serializer = self.get_serializer(data=request.data)
-#         try:
-#             serializer.is_valid(raise_exception=True)
-#         except Exception as e:
-#             return Response({"error": "Invalid username or password"}, status=status.HTTP_401_UNAUTHORIZED)
-        
-#         tokens = serializer.validated_data
-#         return Response({
-#             "access": tokens["access"],
-#             "refresh": tokens["refresh"],
-#             "username": serializer.user.username,
-#             "message": "Login successful ✅"
-#         }, status=status.HTTP_200_OK)
-from rest_framework_simplejwt.serializers import CustomTokenObtainPairSerializer
+from rest_framework.exceptions import AuthenticationFailed
+from .serializers import CustomTokenObtainPairSerializer
 class LoginView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
@@ -62,7 +44,8 @@ class LoginView(TokenObtainPairView):
         serializer = self.get_serializer(data=request.data)
         try:
             serializer.is_valid(raise_exception=True)
-        except Exception:
+        # Catch the specific authentication error instead of a generic Exception
+        except AuthenticationFailed:
             return Response(
                 {"error": "Invalid username or password"},
                 status=status.HTTP_401_UNAUTHORIZED
@@ -75,6 +58,7 @@ class LoginView(TokenObtainPairView):
             "username": serializer.user.username,
             "message": "Login successful ✅"
         }, status=status.HTTP_200_OK)
+
 
 
 class UserViewSet(viewsets.ModelViewSet):

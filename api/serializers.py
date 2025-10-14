@@ -10,7 +10,22 @@ from .models import User, Feed, FeedImage, Comment, Report, Logging
 #     def create(self, validated_data):
 #         user = User.objects.create_user(**validated_data)
 #         return user
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Custom JWT serializer that adds username and message."""
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        # Include custom fields in token payload
+        token['username'] = user.username
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        data['username'] = self.user.username
+        data['message'] = "Login successful ✅"
+        return data
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -35,12 +50,13 @@ class FeedImageSerializer(serializers.ModelSerializer):
         fields = ('id', 'image_url', 'created_at')
 
 class CommentSerializer(serializers.ModelSerializer):
+    # 'author' is read-only because it's set automatically from the logged-in user
     author = UserSerializer(read_only=True)
 
     class Meta:
         model = Comment
-        fields = ('id', 'text_content', 'author', 'created_at', 'updated_at')
-
+        # Add 'feed' to this tuple so the serializer accepts it from the request
+        fields = ('id', 'text_content', 'author', 'feed', 'created_at', 'updated_at')
 class FeedSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     images = FeedImageSerializer(many=True, read_only=True)
