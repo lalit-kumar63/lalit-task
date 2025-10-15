@@ -250,7 +250,7 @@ document.querySelectorAll('.report-btn').forEach(btn => {
                 alert('Feed reported successfully!');
             } else {
                 const err = await res.json();
-                alert('Error: ' + JSON.stringify(err));
+                alert("Already reported.");
             }
         } catch(error){
             console.error(error);
