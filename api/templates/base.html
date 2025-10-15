@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 {% load static %}
 <html>
@@ -5,9 +6,19 @@
     <title>{% block title %}Social App{% endblock %}</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        .custom-navbar{
+            position: fixed !important;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1030;
+            width: 90vw;
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light custom-navbar">
         <a class="navbar-brand" href="{% url 'home' %}">Social App</a>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
@@ -23,8 +34,14 @@
             </ul>
             <ul class="navbar-nav">
                 {% if user.is_authenticated %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">Logout</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" 
+                           data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            👋 {{ user.username }}
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="userDropdown">
+                            <a class="dropdown-item text-danger" href="{% url 'logout' %}">Logout</a>
+                        </div>
                     </li>
                 {% else %}
                     <li class="nav-item">
@@ -35,6 +52,7 @@
                     </li>
                 {% endif %}
             </ul>
+            
         </div>
     </nav>
     <div class="container mt-4">

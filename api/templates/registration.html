@@ -42,19 +42,38 @@
 <script>
 document.getElementById('registerForm').onsubmit = async function(e){
     e.preventDefault();
+
     const formData = new FormData(this);
     const data = {
         username: formData.get('username'),
         email: formData.get('email'),
-        password: formData.get('password')
+        password: formData.get('password'),
+        first_name: formData.get('firstname'),
+        last_name: formData.get('lastname')
     };
-    const res = await fetch('/api/register/', {
+
+    const res = await fetch("{% url 'api_register' %}", {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data)
     });
+
     const result = await res.json();
-    document.getElementById('registerMessage').innerText = result.message || result.error;
+    const messageEl = document.getElementById('registerMessage');
+
+    if (res.ok) {
+        messageEl.classList.add('text-success');
+        messageEl.innerText = result.message || 'Registration successful! Redirecting to login...';
+
+        // ✅ Redirect to login page after 2 seconds
+        setTimeout(() => {
+            window.location.href = "{% url 'login_page' %}";
+        }, 2000);
+    } else {
+        messageEl.classList.add('text-danger');
+        messageEl.innerText = result.error || 'Registration failed. Please try again.';
+    }
 };
 </script>
+
 {% endblock %}

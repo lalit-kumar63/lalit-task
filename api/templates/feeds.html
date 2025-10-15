@@ -5,35 +5,258 @@
 {% block content %}
 <div class="container">
     <h2 class="my-4">All Feeds</h2>
-    <a href="/post-feed/" class="btn btn-primary mb-4">Post a Feed</a>
+
+    <!-- Post Feed Button -->
+    <button id="openPostFeedBtn" class="btn btn-primary mb-4">Post a Feed</button>
+
+    <!-- Post Feed Form (hidden initially) -->
+    <div id="postFeedFormContainer" style="display:none; margin-bottom:20px;">
+        <h4>Post a new Feed</h4>
+        <form id="postFeedForm" enctype="multipart/form-data">
+            {% csrf_token %}
+            <textarea name="text_content" placeholder="Write your feed" required class="form-control mb-2"></textarea>
+            <input type="file" name="image" class="form-control mb-2" accept="image/*"><br>
+            <button type="submit" class="btn btn-success" id="postFeedBtn">
+                <span id="postFeedBtnText">Post</span>
+                <span id="postFeedBtnLoader" class="spinner-border spinner-border-sm" role="status" style="display:none;"></span>
+            </button>
+            <button type="button" id="cancelPostFeedBtn" class="btn btn-secondary">Cancel</button>
+        </form>
+        <p id="feedMessage" class="text-center mt-2"></p>
+    </div>
+
     <div id="feedsContainer">
         {% for feed_item in feed_data %}
-            <div class="card mb-3">
+            {% if not feed_item.is_hidden %}
+            <div class="card mb-3 feed-card" data-feed-id="{{ feed_item.feed.id }}">
                 <div class="card-body">
                     <h5 class="card-title">{{ feed_item.feed.author.username }}</h5>
                     <p class="card-text">{{ feed_item.feed.text_content }}</p>
+
                     {% if feed_item.images %}
                         {% for img in feed_item.images %}
-                            <img src="{{ img.image_url }}" class="img-fluid rounded" alt="Feed image">
+                            <img src="{{ img.image_url }}" class="img-fluid rounded mb-2" alt="Feed image">
                         {% endfor %}
                     {% endif %}
+
                     <hr>
                     <h6>Comments</h6>
-                    {% for comment in feed_item.comments %}
-                        <div class="media mb-2">
-                            <div class="media-body">
-                                <strong>{{ comment.author.username }}</strong>
-                                <p>{{ comment.text_content }}</p>
-                            </div>
-                        </div>
-                    {% empty %}
-                        <p>No comments yet.</p>
-                    {% endfor %}
+                    <div class="comments-container">
+                        {% if feed_item.comments %}
+                            {% for comment in feed_item.comments %}
+                                <div class="media mb-2">
+                                    <div class="media-body">
+                                        <strong>{{ comment.author.username }}</strong>
+                                        <p>{{ comment.text_content }}</p>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="no-comments">No comments yet.</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Inline Comment Form -->
+                    <div class="mt-2">
+                        <input type="text" class="form-control comment-input mb-1" placeholder="Write a comment...">
+                        <button class="btn btn-sm btn-success comment-post-btn" data-feed-id="{{ feed_item.feed.id }}">Add Comment</button>
+                    </div>
+
+                    <button class="btn btn-sm btn-danger report-btn mt-2" data-feed-id="{{ feed_item.feed.id }}" data-user-id="{{ user.id }}">Report</button>
                 </div>
             </div>
+            {% endif %}
         {% empty %}
             <p>No feeds to display.</p>
         {% endfor %}
     </div>
 </div>
+
+<script>
+const token = localStorage.getItem('access');
+
+// Toggle Feed Form
+const openBtn = document.getElementById('openPostFeedBtn');
+const cancelBtn = document.getElementById('cancelPostFeedBtn');
+const formContainer = document.getElementById('postFeedFormContainer');
+
+openBtn.addEventListener('click', () => {
+    formContainer.style.display = 'block';
+    openBtn.style.display = 'none';
+});
+cancelBtn.addEventListener('click', () => {
+    formContainer.style.display = 'none';
+    openBtn.style.display = 'inline-block';
+});
+
+// Submit Feed
+document.getElementById('postFeedForm').onsubmit = async function(e){
+    e.preventDefault();
+    const feedMessage = document.getElementById('feedMessage');
+    const postBtn = document.getElementById('postFeedBtn');
+    const postBtnText = document.getElementById('postFeedBtnText');
+    const postBtnLoader = document.getElementById('postFeedBtnLoader');
+
+    if (!token) {
+        alert('You must be logged in to post!');
+        return;
+    }
+
+    postBtn.disabled = true;
+    postBtnText.style.display = 'none';
+    postBtnLoader.style.display = 'inline-block';
+
+    const formData = new FormData(this);
+    formData.append("is_hidden", "false");
+
+    try {
+        const response = await fetch("{% url 'api_create_feed' %}", {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + token
+            },
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            feedMessage.classList.add('text-danger');
+            feedMessage.innerText = result.error || JSON.stringify(result);
+            return;
+        }
+
+        feedMessage.classList.add('text-success');
+        feedMessage.innerText = "Feed posted successfully!";
+        addFeedToUI(result);
+        this.reset();
+        formContainer.style.display = 'none';
+        openBtn.style.display = 'inline-block';
+    } catch (err) {
+        console.error(err);
+        feedMessage.classList.add('text-danger');
+        feedMessage.innerText = "Network error. Try again.";
+    } finally {
+        postBtn.disabled = false;
+        postBtnText.style.display = 'inline';
+        postBtnLoader.style.display = 'none';
+    }
+};
+
+// Add feed dynamically
+function addFeedToUI(feed) {
+    const container = document.getElementById('feedsContainer');
+    const card = document.createElement('div');
+    card.classList.add('card', 'mb-3', 'feed-card');
+    card.setAttribute('data-feed-id', feed.id);
+
+    card.innerHTML = `
+        <div class="card-body">
+            <h5 class="card-title">${feed.author?.username || 'You'}</h5>
+            <p class="card-text">${feed.text_content}</p>
+            ${
+                feed.images && feed.images.length > 0
+                ? feed.images.map(img => `<img src="${img.image_url}" class="img-fluid rounded mb-2" alt="Feed image">`).join('')
+                : ''
+            }
+            <hr>
+            <h6>Comments</h6>
+            <div class="comments-container">
+                <p class="no-comments">No comments yet.</p>
+            </div>
+            <div class="mt-2">
+                <input type="text" class="form-control comment-input mb-1" placeholder="Write a comment...">
+                <button class="btn btn-sm btn-success comment-post-btn" data-feed-id="${feed.id}">Post</button>
+            </div>
+            <button class="btn btn-sm btn-danger report-btn mt-2" data-feed-id="${feed.id}" data-user-id="${feed.author?.id}">Report</button>
+        </div>
+    `;
+    container.prepend(card);
+    attachCommentEvent(card); // attach comment functionality to the new card
+}
+
+// Comments
+function attachCommentEvent(scope=document){
+    scope.querySelectorAll('.comment-post-btn').forEach(btn => {
+        btn.addEventListener('click', async function(){
+            const feedId = this.dataset.feedId;
+            const input = this.previousElementSibling;
+            const text = input.value.trim();
+            if(!text) return;
+
+            try {
+                const res = await fetch("{% url 'api_create_comment' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ feed: feedId, text_content: text })
+                });
+
+                if(res.ok){
+                    const result = await res.json();
+                    const container = this.closest('.card-body').querySelector('.comments-container');
+
+                    // Remove "No comments yet" if present
+                    const noComments = container.querySelector('.no-comments');
+                    if(noComments) noComments.remove();
+
+                    const div = document.createElement('div');
+                    div.classList.add('media', 'mb-2');
+                    div.innerHTML = `<div class="media-body"><strong>${result.author?.username || 'You'}</strong><p>${result.text_content}</p></div>`;
+                    container.appendChild(div);
+
+                    input.value = '';
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + JSON.stringify(err));
+                }
+            } catch(err){
+                console.error(err);
+                alert('Network error. Try again.');
+            }
+        });
+    });
+}
+
+// Attach comment events on page load
+if(token){
+    attachCommentEvent();
+}
+
+// Reports
+document.querySelectorAll('.report-btn').forEach(btn => {
+    btn.addEventListener('click', async function(){
+        const feedId = this.dataset.feedId;
+        const reporterId = this.dataset.userId;
+        if(!confirm("Do you want to report this feed?")) return;
+
+        try {
+            const res = await fetch("{% url 'api_create_report' %}", {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    feed: feedId,
+                    reporter: reporterId,
+                    reason: "Inappropriate content"
+                })
+            });
+
+            if(res.ok){
+                alert('Feed reported successfully!');
+            } else {
+                const err = await res.json();
+                alert('Error: ' + JSON.stringify(err));
+            }
+        } catch(error){
+            console.error(error);
+            alert('Network error. Try again later.');
+        }
+    });
+});
+</script>
 {% endblock %}

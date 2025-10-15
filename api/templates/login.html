@@ -29,46 +29,18 @@
         </div>
     </div>
 </div>
+
 <script>
-    document.getElementById('loginForm').onsubmit = async function(e){
-        e.preventDefault();
-        const formData = new FormData(this);
-        const data = {
-            username: formData.get('email'), // You are correctly sending the email as 'username'
-            password: formData.get('password')
-        };
-        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        
-        // Use the 'url' tag to get the correct path from urls.py
-        const res = await fetch("{% url 'api_login' %}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrftoken
-            },
-            body: JSON.stringify(data)
-        });
-    
-        const result = await res.json();
-        if(result.access){
-            localStorage.setItem('access', result.access);
-            localStorage.setItem('refresh', result.refresh);
-            window.location.href = "{% url 'feeds_page' %}";
-        } else {
-            document.getElementById('loginMessage').innerText = "Invalid username or password"; // Display a generic error
-        }
-    };
-    </script>
-{% comment %} <script>
 document.getElementById('loginForm').onsubmit = async function(e){
     e.preventDefault();
     const formData = new FormData(this);
     const data = {
-        username: formData.get('email'),
+        email: formData.get('email'),
         password: formData.get('password')
     };
+    console.log(JSON.stringify(data),"=================")
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    const res = await fetch('/api/login/', {
+    const res = await fetch("{% url 'login_page' %}", {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -85,5 +57,5 @@ document.getElementById('loginForm').onsubmit = async function(e){
         document.getElementById('loginMessage').innerText = result.error;
     }
 };
-</script> {% endcomment %}
+</script> 
 {% endblock %}

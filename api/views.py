@@ -330,6 +330,16 @@ def register_view(request):
     else:  # GET request -> render template
         return render(request, 'registration.html')
 
+from django.shortcuts import redirect
+from django.contrib.auth import logout
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def logout_view(request):
+    logout(request)
+    messages.success(request, "You have successfully logged out.")
+    return redirect('login_page') 
 
 # ----------------- User Login -----------------
 @api_view(['GET', 'POST'])
@@ -362,6 +372,8 @@ def users_page(request):
 
 
 # ----------------- Feeds List -----------------
+
+
 @login_required
 def feeds_page(request):
     feeds = Feed.objects.all().order_by('-created_at')
@@ -373,21 +385,94 @@ def feeds_page(request):
             'feed': feed,
             'images': images,
             'comments': comments,
+            'is_hidden': feed.is_hidden,
         })
     return render(request, 'feeds.html', {'feed_data': feed_data})
 
 
 # ----------------- Create Feed -----------------
+# @api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+# def create_feed(request):
+#     serializer = FeedSerializer(data=request.data)
+#     if serializer.is_valid():
+#         serializer.save(author=request.user)
+#         return Response(serializer.data, status=status.HTTP_201_CREATED)
+#     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_feed(request):
+    """
+    Create a feed and optionally upload an image with it.
+    """
     serializer = FeedSerializer(data=request.data)
     if serializer.is_valid():
-        serializer.save(author=request.user)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Save the feed
+        feed = serializer.save(author=request.user)
+
+        # Check if an image is provided
+        file = request.FILES.get('image')
+        if file:
+            # Upload image to Cloudinary
+            upload_data = cloudinary.uploader.upload(file)
+            image_url = upload_data.get('secure_url') or upload_data.get('url')
+            
+            # Save the image
+            feed_image = FeedImage.objects.create(feed=feed, image_url=image_url)
+            image_serializer = FeedImageSerializer(feed_image)
+            
+            # Include image data in feed response
+            response_data = serializer.data
+            response_data['image'] = image_serializer.data
+        else:
+            response_data = serializer.data
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
+    
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
+# @api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+# def create_feed(request):
+#     # Extract text data and files
+#     feed_data = request.data.copy()
+#     images = request.FILES.getlist('images')  # Support multiple images
+    
+#     # Validate feed data
+#     serializer = FeedSerializer(data=feed_data)
+#     if not serializer.is_valid():
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+#     # Create the feed
+#     feed = serializer.save(author=request.user)
+    
+#     # Upload images to Cloudinary if provided
+#     uploaded_images = []
+#     if images:
+#         for image_file in images:
+#             try:
+#                 # Upload to Cloudinary
+#                 upload_data = cloudinary.uploader.upload(image_file)
+#                 image_url = upload_data.get('secure_url') or upload_data.get('url')
+                
+#                 # Create FeedImage record
+#                 feed_image = FeedImage.objects.create(feed=feed, image_url=image_url)
+#                 uploaded_images.append(FeedImageSerializer(feed_image).data)
+#             except Exception as e:
+#                 # If image upload fails, you can either:
+#                 # 1. Delete the feed and return error (strict)
+#                 # 2. Continue without images (lenient)
+#                 # Here's the strict approach:
+#                 feed.delete()
+#                 return Response(
+#                     {'error': f'Image upload failed: {str(e)}'}, 
+#                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#                 )
+    
+#     # Return feed data with uploaded images
+#     response_data = serializer.data
+#     response_data['images'] = uploaded_images
+    
+#     return Response(response_data, status=status.HTTP_201_CREATED)
 # ----------------- Comments -----------------
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -411,11 +496,13 @@ def create_report(request):
 
 
 # ----------------- Upload Feed Image -----------------
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def feed_image_upload(request):
-    file = request.data.get('image')
+    file = request.FILES.get('image')  # <-- use FILES, not data
     feed_id = request.data.get('feed')
+
     if not file or not feed_id:
         return Response({'error': 'image and feed_id are required'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -424,8 +511,28 @@ def feed_image_upload(request):
     except Feed.DoesNotExist:
         return Response({'error': 'Feed not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    # Upload to Cloudinary
     upload_data = cloudinary.uploader.upload(file)
-    image_url = upload_data.get('url')
+    image_url = upload_data.get('secure_url') or upload_data.get('url')
+
     feed_image = FeedImage.objects.create(feed=feed, image_url=image_url)
     serializer = FeedImageSerializer(feed_image)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
+# @api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+# def feed_image_upload(request):
+#     file = request.data.get('image')
+#     feed_id = request.data.get('feed')
+#     if not file or not feed_id:
+#         return Response({'error': 'image and feed_id are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+#     try:
+#         feed = Feed.objects.get(id=feed_id)
+#     except Feed.DoesNotExist:
+#         return Response({'error': 'Feed not found'}, status=status.HTTP_404_NOT_FOUND)
+
+#     upload_data = cloudinary.uploader.upload(file)
+#     image_url = upload_data.get('url')
+#     feed_image = FeedImage.objects.create(feed=feed, image_url=image_url)
+#     serializer = FeedImageSerializer(feed_image)
+#     return Response(serializer.data, status=status.HTTP_201_CREATED)

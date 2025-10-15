@@ -23,7 +23,7 @@ urlpatterns = [
     # Authentication pages
     path('register/', views.register_view, name='register_page'),  # template + API
     path('login/', views.login_view, name='login_page'),           # template + API
-
+    path('logout/', views.logout_view, name='logout'),
     # Users page
     path('users/', views.users_page, name='users_page'),
 

@@ -1,0 +1,19 @@
+# Core Django & DRF
+django
+djangorestframework
+python-dotenv
+# Databases
+psycopg2-binary  # For PostgreSQL
+pymongo          # For MongoDB
+rest_framework
+# Caching
+redis
+django-redis
+
+# Utilities
+Pillow           # For ImageField
+python-decouple
+dj-database-url
+cloudinary
+# rest_framework_simplejwt
+djangorestframework-simplejwt

@@ -3,7 +3,7 @@
 {% block title %}Post Feed{% endblock %}
 
 {% block content %}
-<h2>Post a Feed</h2>
+<h2>Post a new Feed</h2>
 <form id="postFeedForm" enctype="multipart/form-data">
     {% csrf_token %}
     <textarea name="content" placeholder="Write your feed" required></textarea><br>
@@ -11,32 +11,188 @@
     <button type="submit">Post</button>
 </form>
 <p id="feedMessage"></p>
+
 <script>
 document.getElementById('postFeedForm').onsubmit = async function(e){
     e.preventDefault();
     const formData = new FormData(this);
-    const token = localStorage.getItem('access');
-    // First create feed
-    const resFeed = await fetch('/api/feeds/', {
-        method: 'POST',
-        headers: {'Authorization': 'Bearer ' + token},
-        body: JSON.stringify({content: formData.get('content')}),
-    });
-    const feedResult = await resFeed.json();
-    // Then upload image if selected
-    const image = formData.get('image');
-    if(image){
-        const imageData = new FormData();
-        imageData.append('image', image);
-        imageData.append('feed', feedResult.id);
-        await fetch('/api/feed-image/', {
-            method: 'POST',
-            headers: {'Authorization': 'Bearer ' + token},
-            body: imageData
-        });
+    const token = localStorage.getItem('access'); // JWT token
+
+    if(!token){
+        alert('You must be logged in!');
+        return;
     }
-    document.getElementById('feedMessage').innerText = 'Feed posted!';
-    window.location.href = '/feeds/';
+
+    try {
+        // 1️⃣ Create feed
+        const resFeed = await fetch("{% url 'api_create_feed' %}", {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + token
+            },
+            body: formData  // Send multipart/form-data directly
+        });
+
+        if(!resFeed.ok){
+            const err = await resFeed.json();
+            document.getElementById('feedMessage').innerText = 'Error: ' + JSON.stringify(err);
+            return;
+        }
+
+        document.getElementById('feedMessage').innerText = 'Feed posted successfully! Redirecting...';
+        
+        // Redirect after 1 second
+        setTimeout(() => {
+            window.location.href = "{% url 'feeds_page' %}";
+        }, 1000);
+
+    } catch(error) {
+        console.error(error);
+        document.getElementById('feedMessage').innerText = 'Network error. Try again.';
+    }
 };
+</script>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{% extends 'base.html' %}
+
+{% block title %}Feeds{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="my-4">All Feeds</h2>
+    <a href="{% url 'api_create_feed' %}" class="btn btn-primary mb-4">Post a Feed</a>
+    
+    <div id="feedsContainer">
+        {% for feed_item in feed_data %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">{{ feed_item.feed.author.username }}</h5>
+                    <p class="card-text">{{ feed_item.feed.text_content }}</p>
+
+                    {% if feed_item.images %}
+                        {% for img in feed_item.images %}
+                            <img src="{{ img.image_url }}" class="img-fluid rounded mb-2" alt="Feed image">
+                        {% endfor %}
+                    {% endif %}
+
+                    <hr>
+                    <h6>Comments</h6>
+                    {% if feed_item.comments %}
+                        {% for comment in feed_item.comments %}
+                            <div class="media mb-2">
+                                <div class="media-body">
+                                    <strong>{{ comment.author.username }}</strong>
+                                    <p>{{ comment.text_content }}</p>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p>No comments yet.</p>
+                    {% endif %}
+
+                    <!-- Buttons -->
+                    <button class="btn btn-sm btn-success comment-btn" data-feed-id="{{ feed_item.feed.id }}">Comment</button>
+                    <button class="btn btn-sm btn-danger report-btn" data-feed-id="{{ feed_item.feed.id }}">Report</button>
+
+                </div>
+            </div>
+        {% empty %}
+            <p>No feeds to display.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+const token = localStorage.getItem('access');
+
+if(token){
+    // Comment button
+    document.querySelectorAll('.comment-btn').forEach(btn => {
+        btn.addEventListener('click', async function(){
+            const feedId = this.dataset.feedId;
+            const text = prompt("Enter your comment:");
+            if(!text) return;
+
+            const res = await fetch("{% url 'api_create_comment' %}", {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ feed: feedId, text_content: text })
+            });
+
+            if(res.ok){
+                alert('Comment posted!');
+                location.reload();
+            } else {
+                const err = await res.json();
+                alert('Error: ' + JSON.stringify(err));
+            }
+        });
+    });
+
+    // Report button
+    document.querySelectorAll('.report-btn').forEach(btn => {
+        btn.addEventListener('click', async function(){
+            const feedId = this.dataset.feedId;
+            const reporterId = this.dataset.userId; // pass reporter/user id as data-user-id in HTML button
+            console.log("============================")
+            console.log(feedId)
+            console.log(reporterId)
+            console.log("----------------------------")
+            const confirmReport = confirm("Do you want to report this feed?");
+            if(!confirmReport) return;
+
+            try {
+                const res = await fetch("{% url 'api_create_report' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        feed: feedId, 
+                        reporter: reporterId, 
+                        reason: "Inappropriate content" 
+                    })
+                });
+
+                if(res.ok){
+                    alert('Feed reported successfully!');
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + JSON.stringify(err));
+                }
+            } catch(error) {
+                console.error('Network error:', error);
+                alert('Network error. Try again later.');
+            }
+        });
+    });
+
+} else {
+    alert('Please login to comment or report.');
+}
 </script>
 {% endblock %}
